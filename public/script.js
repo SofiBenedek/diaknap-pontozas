@@ -6,6 +6,29 @@ function showMessage(text, isError = false) {
   message.style.color = isError ? "red" : "green";
 }
 
+function getPassword() {
+  return localStorage.getItem("adminPassword") || "";
+}
+
+function savePassword() {
+  const password = document.getElementById("adminPassword").value.trim();
+
+  if (!password) {
+    showMessage("Add meg a jelszót!", true);
+    return;
+  }
+
+  localStorage.setItem("adminPassword", password);
+  showMessage("Jelszó elmentve.");
+}
+
+function getAuthHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "x-admin-password": getPassword()
+  };
+}
+
 async function loadClasses() {
   const res = await fetch(`${apiBase}/api/classes`);
   const data = await res.json();
@@ -44,9 +67,7 @@ async function addPoints() {
 
   const res = await fetch(`${apiBase}/api/add-points`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ className, points })
   });
 
@@ -69,9 +90,7 @@ async function removePoints() {
 
   const res = await fetch(`${apiBase}/api/remove-points`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify({ className, points })
   });
 
@@ -94,7 +113,10 @@ async function deleteClass(id, className) {
   if (!ok) return;
 
   const res = await fetch(`${apiBase}/api/classes/${id}`, {
-    method: "DELETE"
+    method: "DELETE",
+    headers: {
+      "x-admin-password": getPassword()
+    }
   });
 
   const data = await res.json();
@@ -108,4 +130,5 @@ async function deleteClass(id, className) {
   loadClasses();
 }
 
+document.getElementById("adminPassword").value = getPassword();
 loadClasses();

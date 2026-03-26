@@ -4,7 +4,8 @@ const Database = require("better-sqlite3");
 const path = require("path");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 
 app.use(cors());
 app.use(express.json());
@@ -20,6 +21,16 @@ db.prepare(`
   )
 `).run();
 
+function checkPassword(req, res, next) {
+  const password = req.headers["x-admin-password"];
+
+  if (!password || password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ message: "Hibás jelszó!" });
+  }
+
+  next();
+}
+
 app.get("/api/classes", (req, res) => {
   const classes = db
     .prepare("SELECT * FROM classes ORDER BY points DESC, class_name ASC")
@@ -28,7 +39,7 @@ app.get("/api/classes", (req, res) => {
   res.json(classes);
 });
 
-app.post("/api/add-points", (req, res) => {
+app.post("/api/add-points", checkPassword, (req, res) => {
   const { className, points } = req.body;
 
   if (!className || points === undefined) {
@@ -68,7 +79,7 @@ app.post("/api/add-points", (req, res) => {
   }
 });
 
-app.post("/api/remove-points", (req, res) => {
+app.post("/api/remove-points", checkPassword, (req, res) => {
   const { className, points } = req.body;
 
   if (!className || points === undefined) {
@@ -105,7 +116,7 @@ app.post("/api/remove-points", (req, res) => {
   res.json({ message: "Pont levonva!" });
 });
 
-app.delete("/api/classes/:id", (req, res) => {
+app.delete("/api/classes/:id", checkPassword, (req, res) => {
   const id = Number(req.params.id);
 
   if (isNaN(id)) {
@@ -125,6 +136,6 @@ app.delete("/api/classes/:id", (req, res) => {
   res.json({ message: "Az osztály törölve lett!" });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log(`A szerver fut: http://localhost:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`A szerver fut a ${PORT} porton`);
 });
