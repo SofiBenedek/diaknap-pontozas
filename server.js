@@ -125,6 +125,6 @@ app.delete("/api/classes/:id", (req, res) => {
   res.json({ message: "Az osztály törölve lett!" });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(process.env.PORT || 3000, () => {
   console.log(`A szerver fut: http://localhost:${PORT}`);
 });
