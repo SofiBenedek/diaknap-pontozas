@@ -210,3 +210,37 @@ document.getElementById("adminPassword").value = getPassword();
 
 loadAllowedClasses();
 refreshAll();
+
+async function exportCsv() {
+  const res = await fetch(`${apiBase}/api/classes`);
+  const data = await res.json();
+
+  if (!data || data.length === 0) {
+    showMessage("Nincs mit exportálni.", true);
+    return;
+  }
+
+  let csvContent = "Osztály,Pont\n";
+
+  data.forEach(item => {
+    csvContent += `${item.class_name},${item.points}\n`;
+  });
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = window.URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  const now = new Date();
+
+  const fileName = `diaknap-pontok-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}_${String(now.getHours()).padStart(2, "0")}-${String(now.getMinutes()).padStart(2, "0")}.csv`;
+
+  link.href = url;
+  link.setAttribute("download", fileName);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  window.URL.revokeObjectURL(url);
+
+  showMessage("CSV export sikeres.");
+}

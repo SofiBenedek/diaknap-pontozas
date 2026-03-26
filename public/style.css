@@ -358,6 +358,21 @@ tbody td:nth-child(2) {
   border-radius: 16px;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.export-btn {
+  color: white;
+  background: linear-gradient(135deg, #059669, #10b981);
+}
+
+.export-btn:hover {
+  opacity: 0.92;
+}
+
 @media (max-width: 768px) {
   .history-item {
     align-items: flex-start;
@@ -414,3 +429,4 @@ tbody td:nth-child(2) {
     width: 100%;
   }
 }
+
