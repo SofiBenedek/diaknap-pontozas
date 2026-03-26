@@ -34,6 +34,8 @@ const allowedClasses = [
   "13.C"
 ];
 
+const allowedStations = Array.from({ length: 15 }, (_, i) => i + 1);
+
 function checkPassword(req, res, next) {
   const password = req.headers["x-admin-password"];
 
@@ -43,16 +45,6 @@ function checkPassword(req, res, next) {
 
   next();
 }
-
-app.post("/api/login", (req, res) => {
-  const { password } = req.body;
-
-  if (!password || password !== ADMIN_PASSWORD) {
-    return res.status(401).json({ message: "Hibás jelszó!" });
-  }
-
-  res.json({ message: "Sikeres bejelentkezés." });
-});
 
 function normalizeClassName(className) {
   return className.trim().toUpperCase();
@@ -67,13 +59,53 @@ function isValidPointValue(points) {
   return !isNaN(pointValue) && pointValue >= 1 && pointValue <= 10;
 }
 
-async function addHistory(className, actionType, points) {
+function isValidStation(station) {
+  const stationValue = Number(station);
+  return allowedStations.includes(stationValue);
+}
+
+async function addHistory(className, stationNumber, actionType, points) {
   await supabase.from("history").insert({
     class_name: className,
+    station_number: stationNumber,
     action_type: actionType,
     points: points
   });
 }
+
+async function getStationTotalForClass(className, stationNumber) {
+  const { data, error } = await supabase
+    .from("history")
+    .select("points, action_type")
+    .eq("class_name", className)
+    .eq("station_number", stationNumber);
+
+  if (error) {
+    throw error;
+  }
+
+  let total = 0;
+
+  for (const item of data) {
+    if (item.action_type === "add") {
+      total += item.points;
+    } else if (item.action_type === "remove") {
+      total -= item.points;
+    }
+  }
+
+  return Math.max(0, total);
+}
+
+app.post("/api/login", (req, res) => {
+  const { password } = req.body;
+
+  if (!password || password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ message: "Hibás jelszó!" });
+  }
+
+  res.json({ message: "Sikeres bejelentkezés." });
+});
 
 app.get("/api/classes", async (req, res) => {
   const { data, error } = await supabase
@@ -93,6 +125,10 @@ app.get("/api/allowed-classes", (req, res) => {
   res.json(allowedClasses);
 });
 
+app.get("/api/stations", (req, res) => {
+  res.json(allowedStations);
+});
+
 app.get("/api/history", checkPassword, async (req, res) => {
   const { data, error } = await supabase
     .from("history")
@@ -108,22 +144,25 @@ app.get("/api/history", checkPassword, async (req, res) => {
 });
 
 app.post("/api/add-points", checkPassword, async (req, res) => {
-  const { className, points } = req.body;
+  const { className, stationNumber, points } = req.body;
 
-  if (!className || points === undefined) {
+  if (!className || !stationNumber || points === undefined) {
     return res.status(400).json({ message: "Hiányzó adat!" });
   }
 
   const cleanClassName = normalizeClassName(className);
   const pointValue = Number(points);
-
-  if (!cleanClassName) {
-    return res.status(400).json({ message: "Az osztály neve kötelező!" });
-  }
+  const stationValue = Number(stationNumber);
 
   if (!isValidClassName(cleanClassName)) {
     return res.status(400).json({
-      message: "Csak a megadott osztályok használhatók: 9.A, 9.B, 9.NY, 10.A-13.C"
+      message: "Csak a megadott osztályok használhatók!"
+    });
+  }
+
+  if (!isValidStation(stationValue)) {
+    return res.status(400).json({
+      message: "Csak 1 és 15 közötti állomás használható!"
     });
   }
 
@@ -133,60 +172,75 @@ app.post("/api/add-points", checkPassword, async (req, res) => {
     });
   }
 
-  const { data: existing, error: selectError } = await supabase
-    .from("classes")
-    .select("*")
-    .eq("class_name", cleanClassName)
-    .maybeSingle();
+  try {
+    const stationTotal = await getStationTotalForClass(cleanClassName, stationValue);
 
-  if (selectError) {
-    return res.status(500).json({ message: "Hiba az osztály lekérésekor!" });
-  }
-
-  if (existing) {
-    const { error: updateError } = await supabase
-      .from("classes")
-      .update({ points: existing.points + pointValue })
-      .eq("id", existing.id);
-
-    if (updateError) {
-      return res.status(500).json({ message: "Hiba a pont hozzáadásakor!" });
-    }
-  } else {
-    const { error: insertError } = await supabase
-      .from("classes")
-      .insert({
-        class_name: cleanClassName,
-        points: pointValue
+    if (stationTotal + pointValue > 10) {
+      return res.status(400).json({
+        message: `Ez az állomás ennek az osztálynak már ${stationTotal} pontot adott. Összesen maximum 10 pont adható.`
       });
-
-    if (insertError) {
-      return res.status(500).json({ message: "Hiba az új osztály létrehozásakor!" });
     }
+
+    const { data: existing, error: selectError } = await supabase
+      .from("classes")
+      .select("*")
+      .eq("class_name", cleanClassName)
+      .maybeSingle();
+
+    if (selectError) {
+      return res.status(500).json({ message: "Hiba az osztály lekérésekor!" });
+    }
+
+    if (existing) {
+      const { error: updateError } = await supabase
+        .from("classes")
+        .update({ points: existing.points + pointValue })
+        .eq("id", existing.id);
+
+      if (updateError) {
+        return res.status(500).json({ message: "Hiba a pont hozzáadásakor!" });
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from("classes")
+        .insert({
+          class_name: cleanClassName,
+          points: pointValue
+        });
+
+      if (insertError) {
+        return res.status(500).json({ message: "Hiba az új osztály létrehozásakor!" });
+      }
+    }
+
+    await addHistory(cleanClassName, stationValue, "add", pointValue);
+
+    res.json({ message: "Pont hozzáadva!" });
+  } catch (error) {
+    res.status(500).json({ message: "Hiba a művelet során!" });
   }
-
-  await addHistory(cleanClassName, "add", pointValue);
-
-  res.json({ message: "Pont hozzáadva!" });
 });
 
 app.post("/api/remove-points", checkPassword, async (req, res) => {
-  const { className, points } = req.body;
+  const { className, stationNumber, points } = req.body;
 
-  if (!className || points === undefined) {
+  if (!className || !stationNumber || points === undefined) {
     return res.status(400).json({ message: "Hiányzó adat!" });
   }
 
   const cleanClassName = normalizeClassName(className);
   const pointValue = Number(points);
-
-  if (!cleanClassName) {
-    return res.status(400).json({ message: "Az osztály neve kötelező!" });
-  }
+  const stationValue = Number(stationNumber);
 
   if (!isValidClassName(cleanClassName)) {
     return res.status(400).json({
-      message: "Csak a megadott osztályok használhatók: 9.A, 9.B, 9.NY, 10.A-13.C"
+      message: "Csak a megadott osztályok használhatók!"
+    });
+  }
+
+  if (!isValidStation(stationValue)) {
+    return res.status(400).json({
+      message: "Csak 1 és 15 közötti állomás használható!"
     });
   }
 
@@ -196,34 +250,46 @@ app.post("/api/remove-points", checkPassword, async (req, res) => {
     });
   }
 
-  const { data: existing, error: selectError } = await supabase
-    .from("classes")
-    .select("*")
-    .eq("class_name", cleanClassName)
-    .maybeSingle();
+  try {
+    const stationTotal = await getStationTotalForClass(cleanClassName, stationValue);
 
-  if (selectError) {
-    return res.status(500).json({ message: "Hiba az osztály lekérésekor!" });
+    if (stationTotal - pointValue < 0) {
+      return res.status(400).json({
+        message: `Erről az állomásról ennél az osztálynál csak ${stationTotal} pont vonható vissza.`
+      });
+    }
+
+    const { data: existing, error: selectError } = await supabase
+      .from("classes")
+      .select("*")
+      .eq("class_name", cleanClassName)
+      .maybeSingle();
+
+    if (selectError) {
+      return res.status(500).json({ message: "Hiba az osztály lekérésekor!" });
+    }
+
+    if (!existing) {
+      return res.status(404).json({ message: "Ilyen osztály nincs a rendszerben!" });
+    }
+
+    const newPoints = Math.max(0, existing.points - pointValue);
+
+    const { error: updateError } = await supabase
+      .from("classes")
+      .update({ points: newPoints })
+      .eq("id", existing.id);
+
+    if (updateError) {
+      return res.status(500).json({ message: "Hiba a pont levonásakor!" });
+    }
+
+    await addHistory(cleanClassName, stationValue, "remove", pointValue);
+
+    res.json({ message: "Pont levonva!" });
+  } catch (error) {
+    res.status(500).json({ message: "Hiba a művelet során!" });
   }
-
-  if (!existing) {
-    return res.status(404).json({ message: "Ilyen osztály nincs a rendszerben!" });
-  }
-
-  const newPoints = Math.max(0, existing.points - pointValue);
-
-  const { error: updateError } = await supabase
-    .from("classes")
-    .update({ points: newPoints })
-    .eq("id", existing.id);
-
-  if (updateError) {
-    return res.status(500).json({ message: "Hiba a pont levonásakor!" });
-  }
-
-  await addHistory(cleanClassName, "remove", pointValue);
-
-  res.json({ message: "Pont levonva!" });
 });
 
 app.delete("/api/classes/:id", checkPassword, async (req, res) => {

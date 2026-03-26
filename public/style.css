@@ -452,6 +452,18 @@ tbody td:nth-child(2) {
   font-weight: 700;
 }
 
+.station-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+
 @media (max-width: 768px) {
   .password-header {
     flex-direction: column;

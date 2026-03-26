@@ -233,6 +233,29 @@ async function loadAllowedClasses() {
   });
 }
 
+async function loadStations() {
+  const res = await fetch(`${apiBase}/api/stations`);
+  const data = await res.json();
+
+  const addSelect = document.getElementById("addStationNumber");
+  const removeSelect = document.getElementById("removeStationNumber");
+
+  addSelect.innerHTML = "";
+  removeSelect.innerHTML = "";
+
+  data.forEach(stationNumber => {
+    const option1 = document.createElement("option");
+    option1.value = stationNumber;
+    option1.textContent = `${stationNumber}. állomás`;
+    addSelect.appendChild(option1);
+
+    const option2 = document.createElement("option");
+    option2.value = stationNumber;
+    option2.textContent = `${stationNumber}. állomás`;
+    removeSelect.appendChild(option2);
+  });
+}
+
 async function loadClasses() {
   const res = await fetch(`${apiBase}/api/classes`);
   const data = await res.json();
@@ -327,12 +350,14 @@ async function loadHistory() {
     const badgeClass = item.action_type === "add" ? "history-badge add" : "history-badge remove";
     const badgeText = item.action_type === "add" ? "Hozzáadás" : "Levonás";
     const pointsText = item.action_type === "add" ? `+${item.points}` : `-${item.points}`;
+    const stationText = item.station_number ? `${item.station_number}. állomás` : "Ismeretlen állomás";
 
     row.innerHTML = `
       <div class="history-main">
         <div class="history-top">
           <span class="${badgeClass}">${badgeText}</span>
           <strong>${item.class_name}</strong>
+          <span class="station-badge">${stationText}</span>
         </div>
         <div class="history-time">${formatDate(item.created_at)}</div>
       </div>
@@ -352,12 +377,13 @@ async function addPoints() {
   }
 
   const className = document.getElementById("addClassName").value;
+  const stationNumber = document.getElementById("addStationNumber").value;
   const points = document.getElementById("addPoints").value;
 
   const res = await fetch(`${apiBase}/api/add-points`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ className, points })
+    body: JSON.stringify({ className, stationNumber, points })
   });
 
   const data = await res.json();
@@ -379,12 +405,13 @@ async function removePoints() {
   }
 
   const className = document.getElementById("removeClassName").value;
+  const stationNumber = document.getElementById("removeStationNumber").value;
   const points = document.getElementById("removePoints").value;
 
   const res = await fetch(`${apiBase}/api/remove-points`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ className, points })
+    body: JSON.stringify({ className, stationNumber, points })
   });
 
   const data = await res.json();
@@ -470,6 +497,7 @@ async function initApp() {
   updateAdminUI();
   await verifySavedPasswordOnLoad();
   await loadAllowedClasses();
+  await loadStations();
   refreshAll();
 }
 
