@@ -1,0 +1,130 @@
+const express = require("express");
+const cors = require("cors");
+const Database = require("better-sqlite3");
+const path = require("path");
+
+const app = express();
+const PORT = 3000;
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+
+const db = new Database("scores.db");
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS classes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_name TEXT NOT NULL UNIQUE,
+    points INTEGER NOT NULL DEFAULT 0
+  )
+`).run();
+
+app.get("/api/classes", (req, res) => {
+  const classes = db
+    .prepare("SELECT * FROM classes ORDER BY points DESC, class_name ASC")
+    .all();
+
+  res.json(classes);
+});
+
+app.post("/api/add-points", (req, res) => {
+  const { className, points } = req.body;
+
+  if (!className || points === undefined) {
+    return res.status(400).json({ message: "Hiányzó adat!" });
+  }
+
+  const cleanClassName = className.trim().toUpperCase();
+  const pointValue = Number(points);
+
+  if (!cleanClassName) {
+    return res.status(400).json({ message: "Az osztály neve kötelező!" });
+  }
+
+  if (isNaN(pointValue) || pointValue <= 0) {
+    return res.status(400).json({ message: "A pontszám csak pozitív szám lehet!" });
+  }
+
+  const existing = db
+    .prepare("SELECT * FROM classes WHERE class_name = ?")
+    .get(cleanClassName);
+
+  if (existing) {
+    db.prepare(`
+      UPDATE classes
+      SET points = points + ?
+      WHERE class_name = ?
+    `).run(pointValue, cleanClassName);
+
+    return res.json({ message: "Pont hozzáadva a meglévő osztályhoz!" });
+  } else {
+    db.prepare(`
+      INSERT INTO classes (class_name, points)
+      VALUES (?, ?)
+    `).run(cleanClassName, pointValue);
+
+    return res.json({ message: "Új osztály létrehozva és pont hozzáadva!" });
+  }
+});
+
+app.post("/api/remove-points", (req, res) => {
+  const { className, points } = req.body;
+
+  if (!className || points === undefined) {
+    return res.status(400).json({ message: "Hiányzó adat!" });
+  }
+
+  const cleanClassName = className.trim().toUpperCase();
+  const pointValue = Number(points);
+
+  if (!cleanClassName) {
+    return res.status(400).json({ message: "Az osztály neve kötelező!" });
+  }
+
+  if (isNaN(pointValue) || pointValue <= 0) {
+    return res.status(400).json({ message: "A levonás csak pozitív szám lehet!" });
+  }
+
+  const existing = db
+    .prepare("SELECT * FROM classes WHERE class_name = ?")
+    .get(cleanClassName);
+
+  if (!existing) {
+    return res.status(404).json({ message: "Ilyen osztály nincs a rendszerben!" });
+  }
+
+  const newPoints = Math.max(0, existing.points - pointValue);
+
+  db.prepare(`
+    UPDATE classes
+    SET points = ?
+    WHERE class_name = ?
+  `).run(newPoints, cleanClassName);
+
+  res.json({ message: "Pont levonva!" });
+});
+
+app.delete("/api/classes/:id", (req, res) => {
+  const id = Number(req.params.id);
+
+  if (isNaN(id)) {
+    return res.status(400).json({ message: "Érvénytelen azonosító!" });
+  }
+
+  const existing = db
+    .prepare("SELECT * FROM classes WHERE id = ?")
+    .get(id);
+
+  if (!existing) {
+    return res.status(404).json({ message: "Az osztály nem található!" });
+  }
+
+  db.prepare("DELETE FROM classes WHERE id = ?").run(id);
+
+  res.json({ message: "Az osztály törölve lett!" });
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`A szerver fut: http://localhost:${PORT}`);
+});

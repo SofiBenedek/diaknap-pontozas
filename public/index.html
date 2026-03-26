@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diáknap pontozás</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Diáknap pontozó</h1>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Pont hozzáadása</h2>
+        <input type="text" id="addClassName" placeholder="Osztály neve" />
+        <input type="number" id="addPoints" placeholder="Pontszám" />
+        <button onclick="addPoints()">Hozzáadás</button>
+      </div>
+
+      <div class="card">
+        <h2>Pont levonása</h2>
+        <input type="text" id="removeClassName" placeholder="Osztály neve" />
+        <input type="number" id="removePoints" placeholder="Levonandó pont" />
+        <button onclick="removePoints()">Levonás</button>
+      </div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <div class="scoreboard">
+      <h2>Eredmények</h2>
+      <button onclick="loadClasses()">Frissítés</button>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Osztály</th>
+            <th>Pont</th>
+            <th>Művelet</th>
+          </tr>
+        </thead>
+        <tbody id="classTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
