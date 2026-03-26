@@ -59,7 +59,7 @@ function isValidClassName(className) {
 
 function isValidPointValue(points) {
   const pointValue = Number(points);
-  return !isNaN(pointValue) && pointValue >= 1 && pointValue <= 10;
+  return !isNaN(pointValue) && pointValue >= 0 && pointValue <= 10;
 }
 
 app.get("/api/classes", (req, res) => {
@@ -96,7 +96,7 @@ app.post("/api/add-points", checkPassword, (req, res) => {
 
   if (!isValidPointValue(pointValue)) {
     return res.status(400).json({
-      message: "A pontszám csak 1 és 10 közötti szám lehet!"
+      message: "A pontszám csak 0 és 10 közötti szám lehet!"
     });
   }
 
@@ -144,7 +144,7 @@ app.post("/api/remove-points", checkPassword, (req, res) => {
 
   if (!isValidPointValue(pointValue)) {
     return res.status(400).json({
-      message: "A levonás csak 1 és 10 közötti szám lehet!"
+      message: "A levonás csak 0 és 10 közötti szám lehet!"
     });
   }
 
