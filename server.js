@@ -21,13 +21,23 @@ db.prepare(`
   )
 `).run();
 
-const allowedClasses = [];
-for (let year = 9; year <= 13; year++) {
-  allowedClasses.push(`${year}.A`);
-  allowedClasses.push(`${year}.B`);
-  allowedClasses.push(`${year}.C`);
-  allowedClasses.push(`${year}.NY`);
-}
+const allowedClasses = [
+  "9.A",
+  "9.B",
+  "9.NY",
+  "10.A",
+  "10.B",
+  "10.C",
+  "11.A",
+  "11.B",
+  "11.C",
+  "12.A",
+  "12.B",
+  "12.C",
+  "13.A",
+  "13.B",
+  "13.C"
+];
 
 function checkPassword(req, res, next) {
   const password = req.headers["x-admin-password"];
