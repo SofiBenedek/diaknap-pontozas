@@ -7,48 +7,82 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="background-glow glow-1"></div>
+  <div class="background-glow glow-2"></div>
+
   <div class="container">
-    <h1>Diáknap pontozó</h1>
+    <header class="hero">
+      <p class="hero-badge">Diáknap 2026</p>
+      <h1>Osztálypontozó</h1>
+      <p class="hero-text">
+        Pontok gyors hozzáadása, levonása és az aktuális állás követése egy helyen.
+      </p>
+    </header>
 
-    <div class="card password-card">
-      <h2>Belépés</h2>
-      <input type="password" id="adminPassword" placeholder="Jelszó" />
-      <button onclick="savePassword()">Jelszó mentése</button>
-    </div>
+    <section class="card password-card">
+      <h2>Admin belépés</h2>
+      <div class="input-group">
+        <input type="password" id="adminPassword" placeholder="Jelszó" />
+        <button onclick="savePassword()">Mentés</button>
+      </div>
+    </section>
 
-    <div class="cards">
-      <div class="card">
-        <h2>Pont hozzáadása</h2>
+    <section class="actions-grid">
+      <div class="card action-card add-card">
+        <div class="card-top">
+          <span class="card-icon">＋</span>
+          <h2>Pont hozzáadása</h2>
+        </div>
+
+        <label>Osztály</label>
         <select id="addClassName"></select>
-        <input type="number" id="addPoints" placeholder="Pontszám (1-10)" min="1" max="10" />
-        <button onclick="addPoints()">Hozzáadás</button>
+
+        <label>Pontszám</label>
+        <input type="number" id="addPoints" placeholder="1 - 10" min="1" max="10" />
+
+        <button class="primary-btn" onclick="addPoints()">Pont hozzáadása</button>
       </div>
 
-      <div class="card">
-        <h2>Pont levonása</h2>
+      <div class="card action-card remove-card">
+        <div class="card-top">
+          <span class="card-icon">－</span>
+          <h2>Pont levonása</h2>
+        </div>
+
+        <label>Osztály</label>
         <select id="removeClassName"></select>
-        <input type="number" id="removePoints" placeholder="Levonandó pont (1-10)" min="1" max="10" />
-        <button onclick="removePoints()">Levonás</button>
+
+        <label>Pontszám</label>
+        <input type="number" id="removePoints" placeholder="1 - 10" min="1" max="10" />
+
+        <button class="secondary-btn" onclick="removePoints()">Pont levonása</button>
       </div>
-    </div>
+    </section>
 
     <div class="message" id="message"></div>
 
-    <div class="scoreboard">
-      <h2>Eredmények</h2>
-      <button onclick="loadClasses()">Frissítés</button>
+    <section class="card scoreboard-card">
+      <div class="scoreboard-header">
+        <div>
+          <h2>Aktuális állás</h2>
+          <p>Az osztályok pontszámai csökkenő sorrendben.</p>
+        </div>
+        <button class="refresh-btn" onclick="loadClasses()">Frissítés</button>
+      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Osztály</th>
-            <th>Pont</th>
-            <th>Művelet</th>
-          </tr>
-        </thead>
-        <tbody id="classTableBody"></tbody>
-      </table>
-    </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Osztály</th>
+              <th>Pont</th>
+              <th>Művelet</th>
+            </tr>
+          </thead>
+          <tbody id="classTableBody"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script src="script.js"></script>
