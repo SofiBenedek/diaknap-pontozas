@@ -29,6 +29,29 @@ function getAuthHeaders() {
   };
 }
 
+async function loadAllowedClasses() {
+  const res = await fetch(`${apiBase}/api/allowed-classes`);
+  const data = await res.json();
+
+  const addSelect = document.getElementById("addClassName");
+  const removeSelect = document.getElementById("removeClassName");
+
+  addSelect.innerHTML = "";
+  removeSelect.innerHTML = "";
+
+  data.forEach(className => {
+    const option1 = document.createElement("option");
+    option1.value = className;
+    option1.textContent = className;
+    addSelect.appendChild(option1);
+
+    const option2 = document.createElement("option");
+    option2.value = className;
+    option2.textContent = className;
+    removeSelect.appendChild(option2);
+  });
+}
+
 async function loadClasses() {
   const res = await fetch(`${apiBase}/api/classes`);
   const data = await res.json();
@@ -79,7 +102,6 @@ async function addPoints() {
   }
 
   showMessage(data.message);
-  document.getElementById("addClassName").value = "";
   document.getElementById("addPoints").value = "";
   loadClasses();
 }
@@ -102,7 +124,6 @@ async function removePoints() {
   }
 
   showMessage(data.message);
-  document.getElementById("removeClassName").value = "";
   document.getElementById("removePoints").value = "";
   loadClasses();
 }
@@ -131,4 +152,6 @@ async function deleteClass(id, className) {
 }
 
 document.getElementById("adminPassword").value = getPassword();
+
+loadAllowedClasses();
 loadClasses();

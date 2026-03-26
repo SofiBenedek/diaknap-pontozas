@@ -19,15 +19,15 @@
     <div class="cards">
       <div class="card">
         <h2>Pont hozzáadása</h2>
-        <input type="text" id="addClassName" placeholder="Osztály neve" />
-        <input type="number" id="addPoints" placeholder="Pontszám" />
+        <select id="addClassName"></select>
+        <input type="number" id="addPoints" placeholder="Pontszám (1-10)" min="1" max="10" />
         <button onclick="addPoints()">Hozzáadás</button>
       </div>
 
       <div class="card">
         <h2>Pont levonása</h2>
-        <input type="text" id="removeClassName" placeholder="Osztály neve" />
-        <input type="number" id="removePoints" placeholder="Levonandó pont" />
+        <select id="removeClassName"></select>
+        <input type="number" id="removePoints" placeholder="Levonandó pont (1-10)" min="1" max="10" />
         <button onclick="removePoints()">Levonás</button>
       </div>
     </div>

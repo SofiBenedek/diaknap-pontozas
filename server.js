@@ -21,6 +21,14 @@ db.prepare(`
   )
 `).run();
 
+const allowedClasses = [];
+for (let year = 9; year <= 13; year++) {
+  allowedClasses.push(`${year}.A`);
+  allowedClasses.push(`${year}.B`);
+  allowedClasses.push(`${year}.C`);
+  allowedClasses.push(`${year}.NY`);
+}
+
 function checkPassword(req, res, next) {
   const password = req.headers["x-admin-password"];
 
@@ -31,12 +39,29 @@ function checkPassword(req, res, next) {
   next();
 }
 
+function normalizeClassName(className) {
+  return className.trim().toUpperCase();
+}
+
+function isValidClassName(className) {
+  return allowedClasses.includes(className);
+}
+
+function isValidPointValue(points) {
+  const pointValue = Number(points);
+  return !isNaN(pointValue) && pointValue >= 1 && pointValue <= 10;
+}
+
 app.get("/api/classes", (req, res) => {
   const classes = db
     .prepare("SELECT * FROM classes ORDER BY points DESC, class_name ASC")
     .all();
 
   res.json(classes);
+});
+
+app.get("/api/allowed-classes", (req, res) => {
+  res.json(allowedClasses);
 });
 
 app.post("/api/add-points", checkPassword, (req, res) => {
@@ -46,15 +71,23 @@ app.post("/api/add-points", checkPassword, (req, res) => {
     return res.status(400).json({ message: "Hiányzó adat!" });
   }
 
-  const cleanClassName = className.trim().toUpperCase();
+  const cleanClassName = normalizeClassName(className);
   const pointValue = Number(points);
 
   if (!cleanClassName) {
     return res.status(400).json({ message: "Az osztály neve kötelező!" });
   }
 
-  if (isNaN(pointValue) || pointValue <= 0) {
-    return res.status(400).json({ message: "A pontszám csak pozitív szám lehet!" });
+  if (!isValidClassName(cleanClassName)) {
+    return res.status(400).json({
+      message: "Csak 9-13 évfolyam és A, B, C vagy NY osztály használható!"
+    });
+  }
+
+  if (!isValidPointValue(pointValue)) {
+    return res.status(400).json({
+      message: "A pontszám csak 1 és 10 közötti szám lehet!"
+    });
   }
 
   const existing = db
@@ -86,15 +119,23 @@ app.post("/api/remove-points", checkPassword, (req, res) => {
     return res.status(400).json({ message: "Hiányzó adat!" });
   }
 
-  const cleanClassName = className.trim().toUpperCase();
+  const cleanClassName = normalizeClassName(className);
   const pointValue = Number(points);
 
   if (!cleanClassName) {
     return res.status(400).json({ message: "Az osztály neve kötelező!" });
   }
 
-  if (isNaN(pointValue) || pointValue <= 0) {
-    return res.status(400).json({ message: "A levonás csak pozitív szám lehet!" });
+  if (!isValidClassName(cleanClassName)) {
+    return res.status(400).json({
+      message: "Csak 9-13 évfolyam és A, B, C vagy NY osztály használható!"
+    });
+  }
+
+  if (!isValidPointValue(pointValue)) {
+    return res.status(400).json({
+      message: "A levonás csak 1 és 10 közötti szám lehet!"
+    });
   }
 
   const existing = db
