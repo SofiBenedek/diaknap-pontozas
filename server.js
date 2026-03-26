@@ -44,6 +44,16 @@ function checkPassword(req, res, next) {
   next();
 }
 
+app.post("/api/login", (req, res) => {
+  const { password } = req.body;
+
+  if (!password || password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ message: "Hibás jelszó!" });
+  }
+
+  res.json({ message: "Sikeres bejelentkezés." });
+});
+
 function normalizeClassName(className) {
   return className.trim().toUpperCase();
 }

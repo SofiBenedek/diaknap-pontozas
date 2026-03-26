@@ -1,4 +1,8 @@
 const apiBase = "";
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_TIME_MS = 60 * 1000;
+
+let isAdminAuthenticated = false;
 
 function showMessage(text, isError = false) {
   const message = document.getElementById("message");
@@ -6,58 +10,61 @@ function showMessage(text, isError = false) {
   message.style.color = isError ? "#f87171" : "#4ade80";
 }
 
-function getPassword() {
+function getStoredPassword() {
   return localStorage.getItem("adminPassword") || "";
 }
 
-function isLoggedIn() {
-  return !!getPassword();
-}
-
-function updateAdminUI() {
-  const adminActions = document.getElementById("adminActions");
-  const logoutButton = document.getElementById("logoutButton");
-  const adminStatus = document.getElementById("adminStatus");
-  const passwordInput = document.getElementById("adminPassword");
-
-  if (isLoggedIn()) {
-    adminActions.classList.remove("hidden");
-    logoutButton.classList.remove("hidden");
-    adminStatus.textContent = "Bejelentkezve";
-    passwordInput.value = getPassword();
-  } else {
-    adminActions.classList.add("hidden");
-    logoutButton.classList.add("hidden");
-    adminStatus.textContent = "Nincs bejelentkezve";
-    passwordInput.value = "";
-  }
-}
-
-function savePassword() {
-  const password = document.getElementById("adminPassword").value.trim();
-
-  if (!password) {
-    showMessage("Add meg a jelszót!", true);
-    return;
-  }
-
+function setStoredPassword(password) {
   localStorage.setItem("adminPassword", password);
-  updateAdminUI();
-  loadHistory();
-  showMessage("Jelszó elmentve.");
 }
 
-function logout() {
+function clearStoredPassword() {
   localStorage.removeItem("adminPassword");
-  updateAdminUI();
-  loadHistory();
-  showMessage("Sikeres kijelentkezés.");
+}
+
+function getFailedLoginCount() {
+  return Number(localStorage.getItem("failedLoginCount") || "0");
+}
+
+function setFailedLoginCount(count) {
+  localStorage.setItem("failedLoginCount", String(count));
+}
+
+function getLoginLockedUntil() {
+  return Number(localStorage.getItem("loginLockedUntil") || "0");
+}
+
+function setLoginLockedUntil(timestamp) {
+  localStorage.setItem("loginLockedUntil", String(timestamp));
+}
+
+function clearLoginLock() {
+  localStorage.removeItem("loginLockedUntil");
+  localStorage.removeItem("failedLoginCount");
+}
+
+function isLoginLocked() {
+  const lockedUntil = getLoginLockedUntil();
+
+  if (!lockedUntil) return false;
+
+  if (Date.now() >= lockedUntil) {
+    clearLoginLock();
+    return false;
+  }
+
+  return true;
+}
+
+function getRemainingLockSeconds() {
+  const lockedUntil = getLoginLockedUntil();
+  return Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000));
 }
 
 function getAuthHeaders() {
   return {
     "Content-Type": "application/json",
-    "x-admin-password": getPassword()
+    "x-admin-password": getStoredPassword()
   };
 }
 
@@ -88,6 +95,119 @@ function getRankBadge(index) {
   }
 
   return `<span class="rank-number">${index + 1}.</span>`;
+}
+
+function updateAdminUI() {
+  const adminActions = document.getElementById("adminActions");
+  const logoutButton = document.getElementById("logoutButton");
+  const adminStatus = document.getElementById("adminStatus");
+  const passwordInput = document.getElementById("adminPassword");
+
+  if (isAdminAuthenticated) {
+    adminActions.classList.remove("hidden");
+    logoutButton.classList.remove("hidden");
+    adminStatus.textContent = "Bejelentkezve";
+    passwordInput.value = getStoredPassword();
+  } else {
+    adminActions.classList.add("hidden");
+    logoutButton.classList.add("hidden");
+
+    if (isLoginLocked()) {
+      adminStatus.textContent = `Túl sok hibás próbálkozás. Várj ${getRemainingLockSeconds()} másodpercet.`;
+    } else {
+      adminStatus.textContent = "Nincs bejelentkezve";
+    }
+  }
+}
+
+async function verifySavedPasswordOnLoad() {
+  const savedPassword = getStoredPassword();
+
+  if (!savedPassword) {
+    isAdminAuthenticated = false;
+    updateAdminUI();
+    return;
+  }
+
+  const res = await fetch(`${apiBase}/api/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ password: savedPassword })
+  });
+
+  if (res.ok) {
+    isAdminAuthenticated = true;
+    clearLoginLock();
+  } else {
+    isAdminAuthenticated = false;
+    clearStoredPassword();
+  }
+
+  updateAdminUI();
+}
+
+async function savePassword() {
+  if (isLoginLocked()) {
+    showMessage(`Túl sok hibás próbálkozás. Próbáld újra ${getRemainingLockSeconds()} mp múlva.`, true);
+    updateAdminUI();
+    return;
+  }
+
+  const password = document.getElementById("adminPassword").value.trim();
+
+  if (!password) {
+    showMessage("Add meg a jelszót!", true);
+    return;
+  }
+
+  const res = await fetch(`${apiBase}/api/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ password })
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    const failedCount = getFailedLoginCount() + 1;
+    setFailedLoginCount(failedCount);
+
+    isAdminAuthenticated = false;
+    clearStoredPassword();
+
+    if (failedCount >= MAX_LOGIN_ATTEMPTS) {
+      setLoginLockedUntil(Date.now() + LOCK_TIME_MS);
+      showMessage("Túl sok hibás jelszó. 1 percig nem próbálkozhatsz.", true);
+    } else {
+      showMessage("Hibás jelszó.", true);
+    }
+
+    updateAdminUI();
+    loadHistory();
+    loadClasses();
+    return;
+  }
+
+  setStoredPassword(password);
+  isAdminAuthenticated = true;
+  clearLoginLock();
+  updateAdminUI();
+  loadHistory();
+  loadClasses();
+  showMessage("Bejelentkezve.");
+}
+
+function logout() {
+  clearStoredPassword();
+  isAdminAuthenticated = false;
+  updateAdminUI();
+  loadHistory();
+  loadClasses();
+  showMessage("Sikeres kijelentkezés.");
 }
 
 async function loadAllowedClasses() {
@@ -141,7 +261,7 @@ async function loadClasses() {
 
     const tdAction = document.createElement("td");
 
-    if (isLoggedIn()) {
+    if (isAdminAuthenticated) {
       const deleteBtn = document.createElement("button");
       deleteBtn.textContent = "Törlés";
       deleteBtn.className = "delete-btn";
@@ -162,9 +282,8 @@ async function loadClasses() {
 
 async function loadHistory() {
   const historyList = document.getElementById("historyList");
-  const password = getPassword();
 
-  if (!password) {
+  if (!isAdminAuthenticated) {
     historyList.innerHTML = `
       <div class="history-empty">
         Jelentkezz be az előzmények megtekintéséhez.
@@ -175,11 +294,15 @@ async function loadHistory() {
 
   const res = await fetch(`${apiBase}/api/history`, {
     headers: {
-      "x-admin-password": password
+      "x-admin-password": getStoredPassword()
     }
   });
 
   if (res.status === 401) {
+    isAdminAuthenticated = false;
+    clearStoredPassword();
+    updateAdminUI();
+
     historyList.innerHTML = `
       <div class="history-empty">
         Hibás jelszó.
@@ -223,6 +346,11 @@ async function loadHistory() {
 }
 
 async function addPoints() {
+  if (!isAdminAuthenticated) {
+    showMessage("Ehhez előbb be kell jelentkezned.", true);
+    return;
+  }
+
   const className = document.getElementById("addClassName").value;
   const points = document.getElementById("addPoints").value;
 
@@ -245,6 +373,11 @@ async function addPoints() {
 }
 
 async function removePoints() {
+  if (!isAdminAuthenticated) {
+    showMessage("Ehhez előbb be kell jelentkezned.", true);
+    return;
+  }
+
   const className = document.getElementById("removeClassName").value;
   const points = document.getElementById("removePoints").value;
 
@@ -267,6 +400,11 @@ async function removePoints() {
 }
 
 async function deleteClass(id, className) {
+  if (!isAdminAuthenticated) {
+    showMessage("Ehhez előbb be kell jelentkezned.", true);
+    return;
+  }
+
   const ok = confirm(`Biztosan törölni akarod ezt az osztályt: ${className}?`);
 
   if (!ok) return;
@@ -274,7 +412,7 @@ async function deleteClass(id, className) {
   const res = await fetch(`${apiBase}/api/classes/${id}`, {
     method: "DELETE",
     headers: {
-      "x-admin-password": getPassword()
+      "x-admin-password": getStoredPassword()
     }
   });
 
@@ -328,6 +466,11 @@ function refreshAll() {
   loadHistory();
 }
 
-updateAdminUI();
-loadAllowedClasses();
-refreshAll();
+async function initApp() {
+  updateAdminUI();
+  await verifySavedPasswordOnLoad();
+  await loadAllowedClasses();
+  refreshAll();
+}
+
+initApp();
