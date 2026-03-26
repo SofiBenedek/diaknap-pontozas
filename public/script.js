@@ -3,7 +3,7 @@ const apiBase = "";
 function showMessage(text, isError = false) {
   const message = document.getElementById("message");
   message.textContent = text;
-  message.style.color = isError ? "red" : "green";
+  message.style.color = isError ? "#f87171" : "#4ade80";
 }
 
 function getPassword() {
@@ -27,6 +27,19 @@ function getAuthHeaders() {
     "Content-Type": "application/json",
     "x-admin-password": getPassword()
   };
+}
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+
+  return date.toLocaleString("hu-HU", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
 }
 
 async function loadAllowedClasses() {
@@ -84,6 +97,43 @@ async function loadClasses() {
   });
 }
 
+async function loadHistory() {
+  const res = await fetch(`${apiBase}/api/history`);
+  const data = await res.json();
+
+  const historyList = document.getElementById("historyList");
+  historyList.innerHTML = "";
+
+  if (data.length === 0) {
+    historyList.innerHTML = `<div class="history-empty">Még nincs előzmény.</div>`;
+    return;
+  }
+
+  data.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "history-item";
+
+    const badgeClass = item.action_type === "add" ? "history-badge add" : "history-badge remove";
+    const badgeText = item.action_type === "add" ? "Hozzáadás" : "Levonás";
+    const pointsText = item.action_type === "add" ? `+${item.points}` : `-${item.points}`;
+
+    row.innerHTML = `
+      <div class="history-main">
+        <div class="history-top">
+          <span class="${badgeClass}">${badgeText}</span>
+          <strong>${item.class_name}</strong>
+        </div>
+        <div class="history-time">${formatDate(item.created_at)}</div>
+      </div>
+      <div class="history-points ${item.action_type === "add" ? "plus" : "minus"}">
+        ${pointsText}
+      </div>
+    `;
+
+    historyList.appendChild(row);
+  });
+}
+
 async function addPoints() {
   const className = document.getElementById("addClassName").value;
   const points = document.getElementById("addPoints").value;
@@ -103,7 +153,7 @@ async function addPoints() {
 
   showMessage(data.message);
   document.getElementById("addPoints").value = "";
-  loadClasses();
+  refreshAll();
 }
 
 async function removePoints() {
@@ -125,7 +175,7 @@ async function removePoints() {
 
   showMessage(data.message);
   document.getElementById("removePoints").value = "";
-  loadClasses();
+  refreshAll();
 }
 
 async function deleteClass(id, className) {
@@ -148,10 +198,15 @@ async function deleteClass(id, className) {
   }
 
   showMessage(data.message);
+  refreshAll();
+}
+
+function refreshAll() {
   loadClasses();
+  loadHistory();
 }
 
 document.getElementById("adminPassword").value = getPassword();
 
 loadAllowedClasses();
-loadClasses();
+refreshAll();

@@ -67,7 +67,7 @@
           <h2>Aktuális állás</h2>
           <p>Az osztályok pontszámai csökkenő sorrendben.</p>
         </div>
-        <button class="refresh-btn" onclick="loadClasses()">Frissítés</button>
+        <button class="refresh-btn" onclick="refreshAll()">Frissítés</button>
       </div>
 
       <div class="table-wrapper">
@@ -82,6 +82,17 @@
           <tbody id="classTableBody"></tbody>
         </table>
       </div>
+    </section>
+
+    <section class="card history-card">
+      <div class="scoreboard-header">
+        <div>
+          <h2>Előzmények</h2>
+          <p>Az utolsó 100 művelet időrendben, legújabb felül.</p>
+        </div>
+      </div>
+
+      <div class="history-list" id="historyList"></div>
     </section>
   </div>
 

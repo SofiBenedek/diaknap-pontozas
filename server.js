@@ -21,6 +21,16 @@ db.prepare(`
   )
 `).run();
 
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_name TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    points INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  )
+`).run();
+
 const allowedClasses = [
   "9.A",
   "9.B",
@@ -59,7 +69,14 @@ function isValidClassName(className) {
 
 function isValidPointValue(points) {
   const pointValue = Number(points);
-  return !isNaN(pointValue) && pointValue >= 0 && pointValue <= 10;
+  return !isNaN(pointValue) && pointValue >= 1 && pointValue <= 10;
+}
+
+function addHistory(className, actionType, points) {
+  db.prepare(`
+    INSERT INTO history (class_name, action_type, points, created_at)
+    VALUES (?, ?, ?, ?)
+  `).run(className, actionType, points, new Date().toISOString());
 }
 
 app.get("/api/classes", (req, res) => {
@@ -72,6 +89,14 @@ app.get("/api/classes", (req, res) => {
 
 app.get("/api/allowed-classes", (req, res) => {
   res.json(allowedClasses);
+});
+
+app.get("/api/history", (req, res) => {
+  const history = db
+    .prepare("SELECT * FROM history ORDER BY id DESC LIMIT 100")
+    .all();
+
+  res.json(history);
 });
 
 app.post("/api/add-points", checkPassword, (req, res) => {
@@ -90,13 +115,13 @@ app.post("/api/add-points", checkPassword, (req, res) => {
 
   if (!isValidClassName(cleanClassName)) {
     return res.status(400).json({
-      message: "Csak 9-13 évfolyam és A, B, C vagy NY osztály használható!"
+      message: "Csak a megadott osztályok használhatók: 9.A, 9.B, 9.NY, 10.A-13.C"
     });
   }
 
   if (!isValidPointValue(pointValue)) {
     return res.status(400).json({
-      message: "A pontszám csak 0 és 10 közötti szám lehet!"
+      message: "A pontszám csak 1 és 10 közötti szám lehet!"
     });
   }
 
@@ -110,16 +135,16 @@ app.post("/api/add-points", checkPassword, (req, res) => {
       SET points = points + ?
       WHERE class_name = ?
     `).run(pointValue, cleanClassName);
-
-    return res.json({ message: "Pont hozzáadva a meglévő osztályhoz!" });
   } else {
     db.prepare(`
       INSERT INTO classes (class_name, points)
       VALUES (?, ?)
     `).run(cleanClassName, pointValue);
-
-    return res.json({ message: "Új osztály létrehozva és pont hozzáadva!" });
   }
+
+  addHistory(cleanClassName, "add", pointValue);
+
+  res.json({ message: "Pont hozzáadva!" });
 });
 
 app.post("/api/remove-points", checkPassword, (req, res) => {
@@ -138,13 +163,13 @@ app.post("/api/remove-points", checkPassword, (req, res) => {
 
   if (!isValidClassName(cleanClassName)) {
     return res.status(400).json({
-      message: "Csak 9-13 évfolyam és A, B, C vagy NY osztály használható!"
+      message: "Csak a megadott osztályok használhatók: 9.A, 9.B, 9.NY, 10.A-13.C"
     });
   }
 
   if (!isValidPointValue(pointValue)) {
     return res.status(400).json({
-      message: "A levonás csak 0 és 10 közötti szám lehet!"
+      message: "A levonás csak 1 és 10 közötti szám lehet!"
     });
   }
 
@@ -163,6 +188,8 @@ app.post("/api/remove-points", checkPassword, (req, res) => {
     SET points = ?
     WHERE class_name = ?
   `).run(newPoints, cleanClassName);
+
+  addHistory(cleanClassName, "remove", pointValue);
 
   res.json({ message: "Pont levonva!" });
 });
