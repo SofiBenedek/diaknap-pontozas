@@ -1,35 +1,20 @@
 const express = require("express");
 const cors = require("cors");
-const Database = require("better-sqlite3");
 const path = require("path");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "1234";
 
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-
-const db = new Database("scores.db");
-
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS classes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    class_name TEXT NOT NULL UNIQUE,
-    points INTEGER NOT NULL DEFAULT 0
-  )
-`).run();
-
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    class_name TEXT NOT NULL,
-    action_type TEXT NOT NULL,
-    points INTEGER NOT NULL,
-    created_at TEXT NOT NULL
-  )
-`).run();
 
 const allowedClasses = [
   "9.A",
@@ -72,34 +57,47 @@ function isValidPointValue(points) {
   return !isNaN(pointValue) && pointValue >= 1 && pointValue <= 10;
 }
 
-function addHistory(className, actionType, points) {
-  db.prepare(`
-    INSERT INTO history (class_name, action_type, points, created_at)
-    VALUES (?, ?, ?, ?)
-  `).run(className, actionType, points, new Date().toISOString());
+async function addHistory(className, actionType, points) {
+  await supabase.from("history").insert({
+    class_name: className,
+    action_type: actionType,
+    points: points
+  });
 }
 
-app.get("/api/classes", (req, res) => {
-  const classes = db
-    .prepare("SELECT * FROM classes ORDER BY points DESC, class_name ASC")
-    .all();
+app.get("/api/classes", async (req, res) => {
+  const { data, error } = await supabase
+    .from("classes")
+    .select("*")
+    .order("points", { ascending: false })
+    .order("class_name", { ascending: true });
 
-  res.json(classes);
+  if (error) {
+    return res.status(500).json({ message: "Hiba az adatok lekérésekor!" });
+  }
+
+  res.json(data);
 });
 
 app.get("/api/allowed-classes", (req, res) => {
   res.json(allowedClasses);
 });
 
-app.get("/api/history", checkPassword, (req, res) => {
-  const history = db
-    .prepare("SELECT * FROM history ORDER BY id DESC LIMIT 100")
-    .all();
+app.get("/api/history", checkPassword, async (req, res) => {
+  const { data, error } = await supabase
+    .from("history")
+    .select("*")
+    .order("id", { ascending: false })
+    .limit(100);
 
-  res.json(history);
+  if (error) {
+    return res.status(500).json({ message: "Hiba az előzmények lekérésekor!" });
+  }
+
+  res.json(data);
 });
 
-app.post("/api/add-points", checkPassword, (req, res) => {
+app.post("/api/add-points", checkPassword, async (req, res) => {
   const { className, points } = req.body;
 
   if (!className || points === undefined) {
@@ -125,29 +123,44 @@ app.post("/api/add-points", checkPassword, (req, res) => {
     });
   }
 
-  const existing = db
-    .prepare("SELECT * FROM classes WHERE class_name = ?")
-    .get(cleanClassName);
+  const { data: existing, error: selectError } = await supabase
+    .from("classes")
+    .select("*")
+    .eq("class_name", cleanClassName)
+    .maybeSingle();
 
-  if (existing) {
-    db.prepare(`
-      UPDATE classes
-      SET points = points + ?
-      WHERE class_name = ?
-    `).run(pointValue, cleanClassName);
-  } else {
-    db.prepare(`
-      INSERT INTO classes (class_name, points)
-      VALUES (?, ?)
-    `).run(cleanClassName, pointValue);
+  if (selectError) {
+    return res.status(500).json({ message: "Hiba az osztály lekérésekor!" });
   }
 
-  addHistory(cleanClassName, "add", pointValue);
+  if (existing) {
+    const { error: updateError } = await supabase
+      .from("classes")
+      .update({ points: existing.points + pointValue })
+      .eq("id", existing.id);
+
+    if (updateError) {
+      return res.status(500).json({ message: "Hiba a pont hozzáadásakor!" });
+    }
+  } else {
+    const { error: insertError } = await supabase
+      .from("classes")
+      .insert({
+        class_name: cleanClassName,
+        points: pointValue
+      });
+
+    if (insertError) {
+      return res.status(500).json({ message: "Hiba az új osztály létrehozásakor!" });
+    }
+  }
+
+  await addHistory(cleanClassName, "add", pointValue);
 
   res.json({ message: "Pont hozzáadva!" });
 });
 
-app.post("/api/remove-points", checkPassword, (req, res) => {
+app.post("/api/remove-points", checkPassword, async (req, res) => {
   const { className, points } = req.body;
 
   if (!className || points === undefined) {
@@ -173,9 +186,15 @@ app.post("/api/remove-points", checkPassword, (req, res) => {
     });
   }
 
-  const existing = db
-    .prepare("SELECT * FROM classes WHERE class_name = ?")
-    .get(cleanClassName);
+  const { data: existing, error: selectError } = await supabase
+    .from("classes")
+    .select("*")
+    .eq("class_name", cleanClassName)
+    .maybeSingle();
+
+  if (selectError) {
+    return res.status(500).json({ message: "Hiba az osztály lekérésekor!" });
+  }
 
   if (!existing) {
     return res.status(404).json({ message: "Ilyen osztály nincs a rendszerben!" });
@@ -183,33 +202,49 @@ app.post("/api/remove-points", checkPassword, (req, res) => {
 
   const newPoints = Math.max(0, existing.points - pointValue);
 
-  db.prepare(`
-    UPDATE classes
-    SET points = ?
-    WHERE class_name = ?
-  `).run(newPoints, cleanClassName);
+  const { error: updateError } = await supabase
+    .from("classes")
+    .update({ points: newPoints })
+    .eq("id", existing.id);
 
-  addHistory(cleanClassName, "remove", pointValue);
+  if (updateError) {
+    return res.status(500).json({ message: "Hiba a pont levonásakor!" });
+  }
+
+  await addHistory(cleanClassName, "remove", pointValue);
 
   res.json({ message: "Pont levonva!" });
 });
 
-app.delete("/api/classes/:id", checkPassword, (req, res) => {
+app.delete("/api/classes/:id", checkPassword, async (req, res) => {
   const id = Number(req.params.id);
 
   if (isNaN(id)) {
     return res.status(400).json({ message: "Érvénytelen azonosító!" });
   }
 
-  const existing = db
-    .prepare("SELECT * FROM classes WHERE id = ?")
-    .get(id);
+  const { data: existing, error: selectError } = await supabase
+    .from("classes")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (selectError) {
+    return res.status(500).json({ message: "Hiba az osztály lekérésekor!" });
+  }
 
   if (!existing) {
     return res.status(404).json({ message: "Az osztály nem található!" });
   }
 
-  db.prepare("DELETE FROM classes WHERE id = ?").run(id);
+  const { error: deleteError } = await supabase
+    .from("classes")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    return res.status(500).json({ message: "Hiba a törléskor!" });
+  }
 
   res.json({ message: "Az osztály törölve lett!" });
 });
