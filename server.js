@@ -313,16 +313,25 @@ app.delete("/api/classes/:id", checkPassword, async (req, res) => {
     return res.status(404).json({ message: "Az osztály nem található!" });
   }
 
-  const { error: deleteError } = await supabase
+  const { error: historyDeleteError } = await supabase
+    .from("history")
+    .delete()
+    .eq("class_name", existing.class_name);
+
+  if (historyDeleteError) {
+    return res.status(500).json({ message: "Hiba az előzmények törlésekor!" });
+  }
+
+  const { error: classDeleteError } = await supabase
     .from("classes")
     .delete()
     .eq("id", id);
 
-  if (deleteError) {
-    return res.status(500).json({ message: "Hiba a törléskor!" });
+  if (classDeleteError) {
+    return res.status(500).json({ message: "Hiba az osztály törlésekor!" });
   }
 
-  res.json({ message: "Az osztály törölve lett!" });
+  res.json({ message: "Az osztály és az összes hozzá tartozó előzmény törölve lett!" });
 });
 
 app.listen(PORT, () => {
