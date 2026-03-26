@@ -20,14 +20,21 @@
     </header>
 
     <section class="card password-card">
-      <h2>Admin belépés</h2>
+      <div class="password-header">
+        <div>
+          <h2>Admin belépés</h2>
+          <p id="adminStatus" class="admin-status">Nincs bejelentkezve</p>
+        </div>
+        <button id="logoutButton" class="logout-btn hidden" onclick="logout()">Kijelentkezés</button>
+      </div>
+
       <div class="input-group">
         <input type="password" id="adminPassword" placeholder="Jelszó" />
         <button onclick="savePassword()">Mentés</button>
       </div>
     </section>
 
-    <section class="actions-grid">
+    <section class="actions-grid hidden" id="adminActions">
       <div class="card action-card add-card">
         <div class="card-top">
           <span class="card-icon">＋</span>
@@ -67,6 +74,7 @@
           <h2>Aktuális állás</h2>
           <p>Az osztályok pontszámai csökkenő sorrendben.</p>
         </div>
+
         <div class="header-buttons">
           <button class="export-btn" onclick="exportCsv()">Export CSV</button>
           <button class="refresh-btn" onclick="refreshAll()">Frissítés</button>
@@ -77,6 +85,7 @@
         <table>
           <thead>
             <tr>
+              <th>Hely</th>
               <th>Osztály</th>
               <th>Pont</th>
               <th>Művelet</th>

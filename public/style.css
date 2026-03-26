@@ -373,6 +373,103 @@ tbody td:nth-child(2) {
   opacity: 0.92;
 }
 
+.hidden {
+  display: none !important;
+}
+
+.password-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.admin-status {
+  margin: 6px 0 0;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.logout-btn {
+  color: white;
+  background: linear-gradient(135deg, #7c2d12, #ea580c);
+  white-space: nowrap;
+}
+
+.rank-badge,
+.rank-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.rank-number {
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+}
+
+.rank-badge.gold {
+  background: linear-gradient(135deg, #f59e0b, #facc15);
+  color: #1f2937;
+}
+
+.rank-badge.silver {
+  background: linear-gradient(135deg, #cbd5e1, #e5e7eb);
+  color: #1f2937;
+}
+
+.rank-badge.bronze {
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+  color: white;
+}
+
+.top1-row {
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.top2-row {
+  background: rgba(203, 213, 225, 0.08);
+}
+
+.top3-row {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.top-class-name {
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.action-lock {
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .password-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .logout-btn {
+    width: 100%;
+  }
+
+  .rank-badge,
+  .rank-number {
+    min-width: 58px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
+
 @media (max-width: 768px) {
   .history-item {
     align-items: flex-start;

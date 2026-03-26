@@ -10,6 +10,29 @@ function getPassword() {
   return localStorage.getItem("adminPassword") || "";
 }
 
+function isLoggedIn() {
+  return !!getPassword();
+}
+
+function updateAdminUI() {
+  const adminActions = document.getElementById("adminActions");
+  const logoutButton = document.getElementById("logoutButton");
+  const adminStatus = document.getElementById("adminStatus");
+  const passwordInput = document.getElementById("adminPassword");
+
+  if (isLoggedIn()) {
+    adminActions.classList.remove("hidden");
+    logoutButton.classList.remove("hidden");
+    adminStatus.textContent = "Bejelentkezve";
+    passwordInput.value = getPassword();
+  } else {
+    adminActions.classList.add("hidden");
+    logoutButton.classList.add("hidden");
+    adminStatus.textContent = "Nincs bejelentkezve";
+    passwordInput.value = "";
+  }
+}
+
 function savePassword() {
   const password = document.getElementById("adminPassword").value.trim();
 
@@ -19,7 +42,16 @@ function savePassword() {
   }
 
   localStorage.setItem("adminPassword", password);
+  updateAdminUI();
+  loadHistory();
   showMessage("Jelszó elmentve.");
+}
+
+function logout() {
+  localStorage.removeItem("adminPassword");
+  updateAdminUI();
+  loadHistory();
+  showMessage("Sikeres kijelentkezés.");
 }
 
 function getAuthHeaders() {
@@ -40,6 +72,22 @@ function formatDate(dateString) {
     minute: "2-digit",
     second: "2-digit"
   });
+}
+
+function getRankBadge(index) {
+  if (index === 0) {
+    return `<span class="rank-badge gold">🥇 1.</span>`;
+  }
+
+  if (index === 1) {
+    return `<span class="rank-badge silver">🥈 2.</span>`;
+  }
+
+  if (index === 2) {
+    return `<span class="rank-badge bronze">🥉 3.</span>`;
+  }
+
+  return `<span class="rank-number">${index + 1}.</span>`;
 }
 
 async function loadAllowedClasses() {
@@ -72,23 +120,38 @@ async function loadClasses() {
   const tbody = document.getElementById("classTableBody");
   tbody.innerHTML = "";
 
-  data.forEach(item => {
+  data.forEach((item, index) => {
     const tr = document.createElement("tr");
+
+    if (index === 0) tr.classList.add("top1-row");
+    if (index === 1) tr.classList.add("top2-row");
+    if (index === 2) tr.classList.add("top3-row");
+
+    const tdRank = document.createElement("td");
+    tdRank.innerHTML = getRankBadge(index);
 
     const tdClass = document.createElement("td");
     tdClass.textContent = item.class_name;
+    if (index < 3) {
+      tdClass.classList.add("top-class-name");
+    }
 
     const tdPoints = document.createElement("td");
     tdPoints.textContent = item.points;
 
     const tdAction = document.createElement("td");
-    const deleteBtn = document.createElement("button");
-    deleteBtn.textContent = "Törlés";
-    deleteBtn.className = "delete-btn";
-    deleteBtn.onclick = () => deleteClass(item.id, item.class_name);
 
-    tdAction.appendChild(deleteBtn);
+    if (isLoggedIn()) {
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Törlés";
+      deleteBtn.className = "delete-btn";
+      deleteBtn.onclick = () => deleteClass(item.id, item.class_name);
+      tdAction.appendChild(deleteBtn);
+    } else {
+      tdAction.innerHTML = `<span class="action-lock">🔒 Admin</span>`;
+    }
 
+    tr.appendChild(tdRank);
     tr.appendChild(tdClass);
     tr.appendChild(tdPoints);
     tr.appendChild(tdAction);
@@ -99,7 +162,6 @@ async function loadClasses() {
 
 async function loadHistory() {
   const historyList = document.getElementById("historyList");
-
   const password = getPassword();
 
   if (!password) {
@@ -227,16 +289,6 @@ async function deleteClass(id, className) {
   refreshAll();
 }
 
-function refreshAll() {
-  loadClasses();
-  loadHistory();
-}
-
-document.getElementById("adminPassword").value = getPassword();
-
-loadAllowedClasses();
-refreshAll();
-
 async function exportCsv() {
   const res = await fetch(`${apiBase}/api/classes`);
   const data = await res.json();
@@ -246,10 +298,10 @@ async function exportCsv() {
     return;
   }
 
-  let csvContent = "Osztály,Pont\n";
+  let csvContent = "Hely,Osztály,Pont\n";
 
-  data.forEach(item => {
-    csvContent += `${item.class_name},${item.points}\n`;
+  data.forEach((item, index) => {
+    csvContent += `${index + 1},${item.class_name},${item.points}\n`;
   });
 
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -270,3 +322,12 @@ async function exportCsv() {
 
   showMessage("CSV export sikeres.");
 }
+
+function refreshAll() {
+  loadClasses();
+  loadHistory();
+}
+
+updateAdminUI();
+loadAllowedClasses();
+refreshAll();
