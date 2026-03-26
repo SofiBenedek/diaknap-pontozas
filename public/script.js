@@ -98,10 +98,36 @@ async function loadClasses() {
 }
 
 async function loadHistory() {
-  const res = await fetch(`${apiBase}/api/history`);
+  const historyList = document.getElementById("historyList");
+
+  const password = getPassword();
+
+  if (!password) {
+    historyList.innerHTML = `
+      <div class="history-empty">
+        Jelentkezz be az előzmények megtekintéséhez.
+      </div>
+    `;
+    return;
+  }
+
+  const res = await fetch(`${apiBase}/api/history`, {
+    headers: {
+      "x-admin-password": password
+    }
+  });
+
+  if (res.status === 401) {
+    historyList.innerHTML = `
+      <div class="history-empty">
+        Hibás jelszó.
+      </div>
+    `;
+    return;
+  }
+
   const data = await res.json();
 
-  const historyList = document.getElementById("historyList");
   historyList.innerHTML = "";
 
   if (data.length === 0) {

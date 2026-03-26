@@ -91,7 +91,7 @@ app.get("/api/allowed-classes", (req, res) => {
   res.json(allowedClasses);
 });
 
-app.get("/api/history", (req, res) => {
+app.get("/api/history", checkPassword, (req, res) => {
   const history = db
     .prepare("SELECT * FROM history ORDER BY id DESC LIMIT 100")
     .all();
