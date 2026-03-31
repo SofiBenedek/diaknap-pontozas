@@ -129,6 +129,47 @@ app.get("/api/stations", (req, res) => {
   res.json(allowedStations);
 });
 
+app.get("/api/station-breakdown", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("history")
+      .select("class_name, station_number, action_type, points");
+
+    if (error) {
+      return res.status(500).json({ message: "Hiba az állomásbontás lekérésekor!" });
+    }
+
+    const result = {};
+
+    for (const item of data) {
+      const className = item.class_name;
+      const stationNumber = item.station_number;
+
+      if (!result[className]) {
+        result[className] = {};
+      }
+
+      if (!result[className][stationNumber]) {
+        result[className][stationNumber] = 0;
+      }
+
+      if (item.action_type === "add") {
+        result[className][stationNumber] += item.points;
+      } else if (item.action_type === "remove") {
+        result[className][stationNumber] -= item.points;
+      }
+
+      if (result[className][stationNumber] < 0) {
+        result[className][stationNumber] = 0;
+      }
+    }
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: "Hiba a művelet során!" });
+  }
+});
+
 app.get("/api/history", checkPassword, async (req, res) => {
   const { data, error } = await supabase
     .from("history")
@@ -162,7 +203,7 @@ app.post("/api/add-points", checkPassword, async (req, res) => {
 
   if (!isValidStation(stationValue)) {
     return res.status(400).json({
-      message: "Csak 1 és 15 közötti állomás használható!"
+      message: "Csak 1 és 10 közötti állomás használható!"
     });
   }
 

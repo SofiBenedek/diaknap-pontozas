@@ -303,6 +303,69 @@ async function loadClasses() {
   });
 }
 
+async function loadStationBreakdown() {
+  const res = await fetch(`${apiBase}/api/station-breakdown`);
+  const data = await res.json();
+
+  const thead = document.getElementById("stationBreakdownHead");
+  const tbody = document.getElementById("stationBreakdownBody");
+
+  if (!thead || !tbody) return;
+
+  thead.innerHTML = "";
+  tbody.innerHTML = "";
+
+  const classNames = Object.keys(data);
+
+  if (classNames.length === 0) {
+    thead.innerHTML = `
+      <tr>
+        <th>Osztály</th>
+        <th>Megjegyzés</th>
+      </tr>
+    `;
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="2">Még nincs állomásbontási adat.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  const stationSet = new Set();
+
+  classNames.forEach(className => {
+    Object.keys(data[className]).forEach(stationNumber => {
+      stationSet.add(Number(stationNumber));
+    });
+  });
+
+  const stations = Array.from(stationSet).sort((a, b) => a - b);
+
+  let headHtml = "<tr><th>Osztály</th>";
+  stations.forEach(station => {
+    headHtml += `<th>${station}. állomás</th>`;
+  });
+  headHtml += "<th>Összesen</th></tr>";
+
+  thead.innerHTML = headHtml;
+
+  classNames.sort().forEach(className => {
+    let total = 0;
+    let rowHtml = `<tr><td>${className}</td>`;
+
+    stations.forEach(station => {
+      const value = data[className][station] || 0;
+      total += value;
+      rowHtml += `<td>${value}</td>`;
+    });
+
+    rowHtml += `<td><strong>${total}</strong></td></tr>`;
+    tbody.innerHTML += rowHtml;
+  });
+}
+
 async function loadHistory() {
   const historyList = document.getElementById("historyList");
 
@@ -454,6 +517,8 @@ async function deleteClass(id, className) {
   refreshAll();
 }
 
+
+
 async function exportCsv() {
   const res = await fetch(`${apiBase}/api/classes`);
   const data = await res.json();
@@ -491,6 +556,7 @@ async function exportCsv() {
 function refreshAll() {
   loadClasses();
   loadHistory();
+  loadStationBreakdown();
 }
 
 async function initApp() {
