@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, "public")));
 const allowedClasses = [
   "9.A",
   "9.B",
-  "9.NY",
+  "9.C",
   "10.A",
   "10.B",
   "10.C",
@@ -34,7 +34,7 @@ const allowedClasses = [
   "13.C"
 ];
 
-const allowedStations = Array.from({ length: 15 }, (_, i) => i + 1);
+const allowedStations = Array.from({ length: 10 }, (_, i) => i + 1);
 
 function checkPassword(req, res, next) {
   const password = req.headers["x-admin-password"];
